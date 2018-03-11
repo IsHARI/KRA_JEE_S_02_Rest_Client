@@ -1,5 +1,5 @@
 function addBookAjax(book) {
-    return fetch("http://localhost:8282/books/", {
+    return fetch("http://localhost:8282/books", {
         method: 'POST',
         body: JSON.stringify(book),
         headers: new Headers({
@@ -26,6 +26,15 @@ function getBook(bookId) {
         })
     })
         .then(response => response.json());
+}
+
+function removeBookAjax(bookId) {
+    return fetch("http://localhost:8282/books/" + bookId, {
+        method: 'DELETE',
+        headers: new Headers({
+            'Content-Type': 'application/json'
+        })
+    });
 }
 
 function clearList(list) {
@@ -63,10 +72,21 @@ function addBook(ev, list) {
     isbn.value = "";
 }
 
+function removeBook(ev, list, bookId) {
+    ev.preventDefault();
+    removeBookAjax(bookId)
+        .then(() => {
+            clearList(list);
+            getBooks()
+                .then(books => displayTitles(list, books));
+        });
+}
+
 function displayTitles(list, books) {
     books.forEach(elem => {
         let newDiv = document.createElement("div");
         let newH1 = document.createElement("h1");
+        let newA = document.createElement("a");
         let newDetailsDiv = document.createElement("div");
 
         newDetailsDiv.dataset.contents = "empty";
@@ -79,9 +99,12 @@ function displayTitles(list, books) {
                 clearList(newDetailsDiv);
             }
         });
+        newA.innerText = "[usuń]";
+        newA.addEventListener("click", ev => removeBook(ev, list, elem.id));
 
         newDiv.appendChild(newH1);
         newDiv.appendChild(newDetailsDiv);
+        newDiv.appendChild(newA);
         list.appendChild(newDiv);
     })
 }
