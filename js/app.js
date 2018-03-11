@@ -1,56 +1,48 @@
-function addBookAjax(book) {
-    return fetch("http://localhost:8282/books", {
-        method: 'POST',
-        body: JSON.stringify(book),
+// Single AJAX function
+function doAjax(context) {
+    let bookId;
+    if(context.hasAttribute("data-id")) {
+        bookId = context.dataset.id;
+    } else {
+        bookId = "";
+    }
+
+    let body;
+    if (context.dataset.method === "POST") {
+        body = JSON.stringify(readNewBook());
+    } else {
+        body = null;
+    }
+
+    let result = fetch("http://localhost:8282/books/" + bookId, {
+        method: context.dataset.method,
+        body: body,
         headers: new Headers({
             'Content-Type': 'application/json'
         })
     });
+
+    if (context.dataset.method === "GET") {
+        result = result.then(response => response.json());
+    }
+
+    return result;
 }
 
-function getBooks() {
-    return fetch("http://localhost:8282/books", {
-        method: 'GET',
-        headers: new Headers({
-            'Content-Type': 'application/json'
-        })
-    })
-        .then(response => response.json());
-}
-
-function getBook(bookId) {
-    return fetch("http://localhost:8282/books/" + bookId, {
-        method: 'GET',
-        headers: new Headers({
-            'Content-Type': 'application/json'
-        })
-    })
-        .then(response => response.json());
-}
-
-function removeBookAjax(bookId) {
-    return fetch("http://localhost:8282/books/" + bookId, {
-        method: 'DELETE',
-        headers: new Headers({
-            'Content-Type': 'application/json'
-        })
-    });
-}
-
+// Helper functions
 function clearList(list) {
     Array.from(list.children).forEach(elem => list.removeChild(elem));
     list.dataset.contents = "empty";
 }
 
-function addBook(ev, list) {
-    ev.preventDefault();
+function readNewBook() {
     const title = document.getElementById("title");
     const author = document.getElementById("author");
     const type = document.getElementById("type");
     const publisher = document.getElementById("publisher");
     const isbn = document.getElementById("isbn");
 
-    const book = {
+    let book = {
         title: title.value,
         author: author.value,
         type: type.value,
@@ -58,28 +50,13 @@ function addBook(ev, list) {
         isbn: isbn.value
     };
 
-    addBookAjax(book)
-        .then(() => {
-            clearList(list);
-            getBooks()
-                .then(books => displayTitles(list, books));
-        });
-
     title.value = "";
     author.value = "";
     type.value = "";
     publisher.value = "";
     isbn.value = "";
-}
 
-function removeBook(ev, list, bookId) {
-    ev.preventDefault();
-    removeBookAjax(bookId)
-        .then(() => {
-            clearList(list);
-            getBooks()
-                .then(books => displayTitles(list, books));
-        });
+    return book;
 }
 
 function displayTitles(list, books) {
@@ -91,16 +68,29 @@ function displayTitles(list, books) {
 
         newDetailsDiv.dataset.contents = "empty";
         newH1.innerText = elem.title;
+        newH1.dataset.method = "GET";
+        newH1.dataset.id = elem.id;
         newH1.addEventListener("click", function () {
             if(newDetailsDiv.dataset.contents === "empty") {
-                getBook(elem.id)
+                doAjax(this)
                     .then(book => displayDetails(newDetailsDiv, book));
             } else {
                 clearList(newDetailsDiv);
             }
         });
+
         newA.innerText = "[usuń]";
-        newA.addEventListener("click", ev => removeBook(ev, list, elem.id));
+        newA.dataset.method = "DELETE";
+        newA.dataset.id = elem.id;
+        newA.addEventListener("click", function (ev) {
+            ev.preventDefault();
+            doAjax(this)
+                .then(() => {
+                    clearList(list);
+                    doAjax(list)
+                        .then(books => displayTitles(list, books));
+                });
+        });
 
         newDiv.appendChild(newH1);
         newDiv.appendChild(newDetailsDiv);
@@ -129,11 +119,21 @@ function displayDetails(list, book) {
     list.dataset.contents = "full";
 }
 
+// Main code:
 document.addEventListener("DOMContentLoaded", function () {
     const addBookButton = document.getElementById("add_book");
     const bookList = document.getElementById("book_list");
 
-    addBookButton.addEventListener("click", ev => addBook(ev, bookList));
-    getBooks()
+    addBookButton.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        doAjax(this)
+            .then(() => {
+                clearList(bookList);
+                doAjax(bookList)
+                    .then(books => displayTitles(bookList, books));
+            });
+    });
+
+    doAjax(bookList)
         .then(books => displayTitles(bookList, books));
 });
